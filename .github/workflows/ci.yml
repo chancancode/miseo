@@ -98,6 +98,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
+      id-token: write
 
     steps:
       - name: Checkout
@@ -116,6 +117,15 @@ jobs:
           VERSION="$(sed -n 's/^version = \"\(.*\)\"$/\1/p' Cargo.toml | head -n1)"
           test -n "$VERSION"
           test "$TAG" = "$VERSION"
+
+      - name: Authenticate crates.io (OIDC)
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish
+        run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
       - name: Build release binary
         run: cargo build --release --locked
@@ -145,8 +155,3 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
-
-      - name: Publish
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish --locked
