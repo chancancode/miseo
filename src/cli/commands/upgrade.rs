@@ -90,7 +90,9 @@ mod tests {
     fn upgrade_rejects_duplicate_use_runtime() {
         let test = TestApp::new();
         let err = test
-            .run(command("miseo upgrade npm:prettier --use node@22 --use node@lts"))
+            .run(command(
+                "miseo upgrade npm:prettier --use node@22 --use node@lts",
+            ))
             .unwrap_err();
 
         assert!(matches!(err, Error::DuplicateRuntimeUse { runtime } if runtime == "node"));
