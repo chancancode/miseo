@@ -34,9 +34,9 @@ Core idea:
 ## Command Surface
 
 - `miseo install <tool-spec>`
-- `miseo install <tool-spec> --use <runtime@version>` (repeatable)
+- `miseo install <tool-spec> --use <runtime@selector>` (repeatable)
 - `miseo upgrade <tool-spec>`
-- `miseo upgrade <tool-spec> --use <runtime@version>` (repeatable)
+- `miseo upgrade <tool-spec> --use <runtime@selector>` (repeatable)
 - `miseo uninstall <tool-spec>`
 - `miseo remove <tool-spec>` (alias of `uninstall`)
 
@@ -66,7 +66,7 @@ Canonical `tool_key` (filesystem key):
 Canonical `install_variant` (concrete install target):
 
 - `<pkg-exact-version>+<runtime-tuple>`
-- `runtime-tuple` is one or more `<runtime-family>-<runtime-pin>` segments, sorted by runtime family and joined by `+`
+- `runtime-tuple` is one or more `<runtime>-<runtime-pin>` segments, sorted by runtime and joined by `+`
 - examples: `14.1.1+node-22.13.1`, `1.2.3+node-22.13.1+ruby-3.3.0`
 
 ## Filesystem Model
@@ -124,7 +124,7 @@ Ownership model:
 
 ## Runtime Pinning
 
-Each tool has a local `mise.toml` pin for its runtime family/families.
+Each tool has a local `mise.toml` pin for its runtime(s).
 
 Example:
 
@@ -135,30 +135,31 @@ node = "20.18.1"
 
 Policy when `--use` is omitted:
 
-1. Map backend to required runtime family set (`npm -> [node]`, etc.; see mapping table below).
-2. Resolve the effective global runtime selector for each required family from mise configuration.
+1. Map backend to required runtime set (`npm -> [node]`, etc.; see mapping table below).
+2. Resolve the effective global runtime selector for each required runtime from mise configuration.
 3. Require that each selected runtime is already installed (non-floating install policy).
 4. Resolve and persist runtime pin values in tool-local `mise.toml`.
 
-If no global runtime is configured for that family, installation fails with a clear instruction to either configure runtime globally in `mise` or pass `--use`.
+If no global runtime is configured for that runtime, installation fails with a clear instruction to either configure runtime globally in `mise` or pass `--use`.
 
 `--use` behavior:
 
 - if `--use` is omitted (Mode A), runtime auto-install is not allowed; failure to resolve a working installed runtime is an error
-- if backend has no runtime-family mapping in `miseo` v1 and `--use` is omitted, fail explicitly (otherwise `miseo` is not adding pinning value)
-- `--use` may be provided multiple times in Mode B; each value contributes one runtime pin
+- if backend has no runtime mapping in `miseo` v1 and `--use` is omitted, fail explicitly (otherwise `miseo` is not adding pinning value)
+- `--use` may be provided multiple times in Mode B; each value contributes one runtime selector (duplicate runtimes are rejected)
+- `miseo` resolves `--use` selectors to concrete versions and persists those concrete pins in the tool-local `mise.toml`
 - if `--use` is explicitly provided (Mode B), installing requested runtime(s) if missing is allowed
 
 Backend-to-runtime mapping used by `miseo`:
 
-| Backend                                                                                   | Runtime family set | Pinning mode                                                         |
-| ----------------------------------------------------------------------------------------- | ------------------ | -------------------------------------------------------------------- |
-| `npm`                                                                                     | `node`             | pinned runtime required                                              |
-| `gem`                                                                                     | `ruby`             | pinned runtime required                                              |
-| `pipx`                                                                                    | `python`           | pinned runtime required                                              |
-| `cargo`                                                                                   | `rust`             | pinned toolchain (mostly build-time relevance for produced binaries) |
-| `go`                                                                                      | `go`               | pinned toolchain (mostly build-time relevance for produced binaries) |
-| `aqua`, `github`, `gitlab`, `http`, `ubi`, `s3`, `spm`, `dotnet`, `conda`, `asdf`, `vfox` | unmapped in v1     | `--use` required; otherwise install/upgrade fails                    |
+| Backend                                                                                   | Runtime set    | Pinning mode                                                         |
+| ----------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------------- |
+| `npm`                                                                                     | `node`         | pinned runtime required                                              |
+| `gem`                                                                                     | `ruby`         | pinned runtime required                                              |
+| `pipx`                                                                                    | `python`       | pinned runtime required                                              |
+| `cargo`                                                                                   | `rust`         | pinned toolchain (mostly build-time relevance for produced binaries) |
+| `go`                                                                                      | `go`           | pinned toolchain (mostly build-time relevance for produced binaries) |
+| `aqua`, `github`, `gitlab`, `http`, `ubi`, `s3`, `spm`, `dotnet`, `conda`, `asdf`, `vfox` | unmapped in v1 | `--use` required; otherwise install/upgrade fails                    |
 
 ## Integration with mise
 

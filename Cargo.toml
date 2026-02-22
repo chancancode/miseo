@@ -1,0 +1,21 @@
+[package]
+name = "miseo"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "miseo"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.5.60", features = ["derive"] }
+serde = { version = "1.0.218", features = ["derive"] }
+toml = "1.0.3"
+thiserror = "2.0.12"
+camino = "1.1.9"
+indexmap = { version = "2.7.1", features = ["serde"] }
+serde_json = "1.0.139"
+owo-colors = "4.1.0"
+
+[dev-dependencies]
+tempfile = "3.17.1"

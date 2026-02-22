@@ -4,6 +4,14 @@ Stable global CLI tools on top of [mise](https://mise.jdx.dev/).
 
 `miseo` (pronounced "miso") manages each global CLI tool as its own isolated environment, pinned to a specific runtime version, so commands stay reliable as you move between projects and upgrade default runtime versions on your system.
 
+## Install
+
+```bash
+mise use -g cargo:miseo
+```
+
+Add `~/.miseo/.bin` to your `$PATH`.
+
 ## Usage
 
 ```bash
