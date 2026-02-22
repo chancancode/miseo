@@ -2,6 +2,14 @@
 name = "miseo"
 version = "0.1.0"
 edition = "2024"
+description = "Stable global CLI tools on top of mise"
+license = "MIT"
+readme = "README.md"
+documentation = "https://docs.rs/miseo"
+repository = "https://github.com/chancancode/miseo"
+homepage = "https://github.com/chancancode/miseo"
+keywords = ["mise", "cli", "tooling"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "miseo"
