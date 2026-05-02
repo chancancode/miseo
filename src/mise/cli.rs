@@ -48,6 +48,18 @@ impl Cli {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
+    fn run_capture_owned(&self, args: &[String]) -> Result<String, Error> {
+        let output = self.command().args(args).output()?;
+
+        ensure_success(
+            args.join(" "),
+            output.status.success(),
+            String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        )?;
+
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
     fn run_status(&self, args: &[String], stream: bool) -> Result<(), Error> {
         if stream {
             self.run_status_streaming(args)
@@ -120,6 +132,27 @@ fn install_into_args(
     args
 }
 
+fn latest_args(runtime_versions: &RuntimePins, tool_spec: &ToolSpec) -> Vec<String> {
+    let mut args = vec![
+        "exec".to_string(),
+        "--cd".to_string(),
+        neutral_cd().to_string(),
+    ];
+
+    for pin in runtime_versions.values() {
+        args.push(pin.runtime_pin());
+    }
+
+    args.push("--".to_string());
+    args.push("mise".to_string());
+    args.push("latest".to_string());
+    args.push(tool_spec.to_string());
+    args.push("--cd".to_string());
+    args.push(neutral_cd().to_string());
+
+    args
+}
+
 fn require_non_empty(value: String, context: &str) -> Result<String, Error> {
     if value.is_empty() {
         return Err(invariant!("{context} returned empty output"));
@@ -157,9 +190,13 @@ fn runtime_spec_from_install_path(
 }
 
 impl Mise for Cli {
-    fn resolve_latest_version(&self, spec: &ToolSpec) -> Result<ToolSpec, Error> {
-        let spec_arg = spec.to_string();
-        let version = self.run_capture(&["latest", &spec_arg, "--cd", neutral_cd()])?;
+    fn resolve_latest_version(
+        &self,
+        runtime_versions: &RuntimePins,
+        spec: &ToolSpec,
+    ) -> Result<ToolSpec, Error> {
+        let args = latest_args(runtime_versions, spec);
+        let version = self.run_capture_owned(&args)?;
         latest_tool_spec(spec, version)
     }
 
@@ -314,6 +351,34 @@ mod tests {
                 "install-into",
                 "npm:prettier@3.8.1",
                 "/tmp/miseo/npm-prettier/3.8.1+node-24.13.1",
+            ]
+        );
+    }
+
+    #[test]
+    fn latest_args_builds_expected_exec_command() {
+        let mut runtime_versions = RuntimePins::new();
+        runtime_versions.insert(
+            Runtime::Node,
+            RuntimeSpec::new(Runtime::Node, "24.13.1".to_string()),
+        );
+
+        let spec: ToolSpec = "npm:prettier@latest".parse().unwrap();
+
+        let args = latest_args(&runtime_versions, &spec);
+        assert_eq!(
+            args,
+            vec![
+                "exec",
+                "--cd",
+                neutral_cd(),
+                "node@24.13.1",
+                "--",
+                "mise",
+                "latest",
+                "npm:prettier@latest",
+                "--cd",
+                neutral_cd(),
             ]
         );
     }
