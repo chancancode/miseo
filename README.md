@@ -12,6 +12,28 @@ mise use -g cargo:miseo
 
 Add `~/.miseo/.bin` to your `$PATH`.
 
+For bash/zsh:
+
+```bash
+echo 'export PATH="$HOME/.miseo/.bin:$PATH"' >> ~/.profile
+```
+
+For fish:
+
+```fish
+fish_add_path ~/.miseo/.bin
+```
+
+For Windows PowerShell:
+
+```powershell
+[Environment]::SetEnvironmentVariable(
+  "Path",
+  "$env:USERPROFILE\.miseo\.bin;" + [Environment]::GetEnvironmentVariable("Path", "User"),
+  "User"
+)
+```
+
 ## Usage
 
 ```bash
