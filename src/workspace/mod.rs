@@ -565,9 +565,8 @@ fn stale_commands(previous: &[String], current: &[String]) -> Vec<String> {
 
 fn link_points_into_tool_dir(target: &Path, tool_key: &str) -> bool {
     target
-        .as_str()
-        .split('/')
-        .any(|component| component == tool_key)
+        .components()
+        .any(|component| component.as_str() == tool_key)
 }
 
 #[cfg(test)]

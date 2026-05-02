@@ -277,7 +277,7 @@ impl VariantLayout {
     }
 
     pub fn public_target(&self, command: &str) -> PathBuf {
-        self.tool_dir.join("current/.miseo").join(command)
+        self.tool_dir.join("current").join(".miseo").join(command)
     }
 }
 
