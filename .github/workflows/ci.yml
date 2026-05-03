@@ -176,9 +176,14 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
 
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
+
+      - name: Install Windows cross linker
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64
 
       - name: Validate tag matches Cargo.toml version
         shell: bash
@@ -197,8 +202,11 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
-      - name: Build release binary
+      - name: Build Linux release binary
         run: cargo build --release --locked
+
+      - name: Build Windows release binary
+        run: cargo build --release --locked --target x86_64-pc-windows-gnu
 
       - name: Package crate
         run: cargo package --locked
@@ -207,12 +215,18 @@ jobs:
         shell: bash
         run: |
           VERSION="$(sed -n 's/^version = \"\(.*\)\"$/\1/p' Cargo.toml | head -n1)"
+
           TARGET="x86_64-unknown-linux-gnu"
-          BASENAME="miseo-v${VERSION}-${TARGET}"
+          LINUX_BASENAME="miseo-v${VERSION}-${TARGET}"
+
+          TARGET="x86_64-pc-windows-gnu"
+          WINDOWS_BASENAME="miseo-v${VERSION}-${TARGET}"
 
           mkdir -p dist
-          cp "target/release/miseo" "dist/${BASENAME}"
-          tar -C dist -czf "dist/${BASENAME}.tar.gz" "${BASENAME}"
+          cp "target/release/miseo" "dist/${LINUX_BASENAME}"
+          tar -C dist -czf "dist/${LINUX_BASENAME}.tar.gz" "${LINUX_BASENAME}"
+          cp "target/x86_64-pc-windows-gnu/release/miseo.exe" "dist/${WINDOWS_BASENAME}.exe"
+          tar -C dist -czf "dist/${WINDOWS_BASENAME}.tar.gz" "${WINDOWS_BASENAME}.exe"
           cp "target/package/miseo-${VERSION}.crate" "dist/"
 
           (
