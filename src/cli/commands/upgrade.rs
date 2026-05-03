@@ -38,6 +38,8 @@ impl Command for Upgrade {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(windows))]
+    use crate::fs::PathBuf;
     use crate::{
         cli::{Cli, Commands, app::TestApp},
         error::Error,
@@ -119,10 +121,16 @@ mod tests {
             !fs.exists(&test.path("npm-prettier/3.8.1+node-24.13.1"))
                 .unwrap()
         );
-        assert_eq!(
-            fs.readlink(&test.path("npm-prettier/current")).unwrap(),
-            Some("3.8.2+node-24.13.1".into())
-        );
+        assert_eq!(fs.readlink(&test.path("npm-prettier/current")).unwrap(), {
+            #[cfg(not(windows))]
+            {
+                Some(PathBuf::from("3.8.2+node-24.13.1"))
+            }
+            #[cfg(windows)]
+            {
+                Some(test.path("npm-prettier/3.8.2+node-24.13.1"))
+            }
+        });
 
         test.out().assert_out(&[
             "miseo upgraded npm:prettier@3.8.2 [node@24.13.1] in ...ms",
@@ -161,10 +169,16 @@ mod tests {
             !fs.exists(&test.path("npm-prettier/3.8.1+node-22.13.1"))
                 .unwrap()
         );
-        assert_eq!(
-            fs.readlink(&test.path("npm-prettier/current")).unwrap(),
-            Some("3.8.2+node-24.13.1".into())
-        );
+        assert_eq!(fs.readlink(&test.path("npm-prettier/current")).unwrap(), {
+            #[cfg(not(windows))]
+            {
+                Some(PathBuf::from("3.8.2+node-24.13.1"))
+            }
+            #[cfg(windows)]
+            {
+                Some(test.path("npm-prettier/3.8.2+node-24.13.1"))
+            }
+        });
 
         test.out().assert_out(&[
             "miseo upgraded npm:prettier@3.8.2 [node@24.13.1] in ...ms",

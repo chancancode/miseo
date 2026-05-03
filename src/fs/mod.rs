@@ -60,11 +60,17 @@ pub trait Fs {
 #[cfg(unix)]
 mod unix;
 
-#[cfg(not(unix))]
-compile_error!("miseo only supports unix targets for now");
+#[cfg(windows)]
+mod windows;
+
+#[cfg(all(not(unix), not(windows)))]
+compile_error!("miseo only supports unix and windows targets");
 
 #[cfg(unix)]
 static DEFAULT_FS: unix::UnixFs = unix::UnixFs;
+
+#[cfg(windows)]
+static DEFAULT_FS: windows::WindowsFs = windows::WindowsFs;
 
 pub fn new() -> &'static impl Fs {
     &DEFAULT_FS

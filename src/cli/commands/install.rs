@@ -53,9 +53,10 @@ impl Command for Install {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(windows))]
+    use crate::fs::PathBuf;
     use crate::{
         cli::{Cli, Commands, app::TestApp},
-        fs::PathBuf,
         spec::Runtime,
     };
     use clap::Parser;
@@ -104,17 +105,32 @@ mod tests {
         test.run(command("miseo install npm:prettier")).unwrap();
 
         let fs = test.fs();
-        assert_eq!(
-            fs.readlink(&test.path("npm-prettier/current")).unwrap(),
-            Some(PathBuf::from("3.8.1+node-24.13.1"))
-        );
+        assert_eq!(fs.readlink(&test.path("npm-prettier/current")).unwrap(), {
+            #[cfg(not(windows))]
+            {
+                Some(PathBuf::from("3.8.1+node-24.13.1"))
+            }
+            #[cfg(windows)]
+            {
+                Some(test.path("npm-prettier/3.8.1+node-24.13.1"))
+            }
+        });
         assert_eq!(
             fs.readlink(&test.path(".bin/prettier")).unwrap(),
             Some(test.root().join("npm-prettier/current/.miseo/prettier"))
         );
         assert!(
-            fs.is_executable(&test.path("npm-prettier/current/.miseo/prettier"))
-                .unwrap()
+            fs.is_executable(&{
+                #[cfg(not(windows))]
+                {
+                    test.path("npm-prettier/current/.miseo/prettier")
+                }
+                #[cfg(windows)]
+                {
+                    test.path("npm-prettier/current/.miseo/prettier.ps1")
+                }
+            })
+            .unwrap()
         );
 
         test.out().assert_out(&[
@@ -148,13 +164,28 @@ mod tests {
             fs.readlink(&test.path(".bin/prettier")).unwrap(),
             Some(test.path("npm-prettier/current/.miseo/prettier"))
         );
-        assert_eq!(
-            fs.readlink(&test.path("npm-prettier/current")).unwrap(),
-            Some(crate::fs::PathBuf::from("3.8.1+node-24.13.1"))
-        );
+        assert_eq!(fs.readlink(&test.path("npm-prettier/current")).unwrap(), {
+            #[cfg(not(windows))]
+            {
+                Some(PathBuf::from("3.8.1+node-24.13.1"))
+            }
+            #[cfg(windows)]
+            {
+                Some(test.path("npm-prettier/3.8.1+node-24.13.1"))
+            }
+        });
         assert!(
-            fs.is_executable(&test.path("npm-prettier/current/.miseo/prettier"))
-                .unwrap()
+            fs.is_executable(&{
+                #[cfg(not(windows))]
+                {
+                    test.path("npm-prettier/current/.miseo/prettier")
+                }
+                #[cfg(windows)]
+                {
+                    test.path("npm-prettier/current/.miseo/prettier.ps1")
+                }
+            })
+            .unwrap()
         );
 
         test.out().assert_out(&[
@@ -214,17 +245,32 @@ mod tests {
             .unwrap();
 
         let fs = test.fs();
-        assert_eq!(
-            fs.readlink(&test.path("npm-prettier/current")).unwrap(),
-            Some(PathBuf::from("3.8.1+node-24.13.1"))
-        );
+        assert_eq!(fs.readlink(&test.path("npm-prettier/current")).unwrap(), {
+            #[cfg(not(windows))]
+            {
+                Some(PathBuf::from("3.8.1+node-24.13.1"))
+            }
+            #[cfg(windows)]
+            {
+                Some(test.path("npm-prettier/3.8.1+node-24.13.1"))
+            }
+        });
         assert_eq!(
             fs.readlink(&test.path(".bin/prettier")).unwrap(),
             Some(test.path("npm-prettier/current/.miseo/prettier"))
         );
         assert!(
-            fs.is_executable(&test.path("npm-prettier/current/.miseo/prettier"))
-                .unwrap()
+            fs.is_executable(&{
+                #[cfg(not(windows))]
+                {
+                    test.path("npm-prettier/current/.miseo/prettier")
+                }
+                #[cfg(windows)]
+                {
+                    test.path("npm-prettier/current/.miseo/prettier.ps1")
+                }
+            })
+            .unwrap()
         );
 
         test.out().assert_out(&[
