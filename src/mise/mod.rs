@@ -9,7 +9,11 @@ use crate::{
 /// Integration contract for calling out to `mise`.
 pub trait Mise {
     /// Resolve a tool spec (for example `npm:prettier@latest`) to an exact package version.
-    fn resolve_latest_version(&self, spec: &ToolSpec) -> Result<ToolSpec, Error>;
+    fn resolve_latest_version(
+        &self,
+        runtime_versions: &RuntimePins,
+        spec: &ToolSpec,
+    ) -> Result<ToolSpec, Error>;
 
     /// Read the globally configured selector for a runtime (for example `node -> 22`).
     fn resolve_global_runtime_selector(

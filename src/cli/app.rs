@@ -67,10 +67,9 @@ impl<M: Mise, O: Output> App<M, O> {
         out: O,
         verbose: bool,
     ) -> Result<Self, Error> {
-        let home = std::env::var("HOME")
-            .map_err(|_| invariant!("HOME is not set; cannot resolve ~/.miseo root"))?;
-
-        let root = PathBuf::from(format!("{home}/.miseo"));
+        let dir = home::home_dir().ok_or_else(|| invariant!("could not resolve home directory"))?;
+        let root = PathBuf::from_path_buf(dir.join(".miseo"))
+            .map_err(|_| invariant!("home directory path is not valid UTF-8"))?;
 
         Ok(Self::new(root, mise, fs, out, verbose))
     }

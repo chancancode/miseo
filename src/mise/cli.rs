@@ -48,6 +48,18 @@ impl Cli {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
+    fn run_capture_owned(&self, args: &[String]) -> Result<String, Error> {
+        let output = self.command().args(args).output()?;
+
+        ensure_success(
+            args.join(" "),
+            output.status.success(),
+            String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        )?;
+
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
     fn run_status(&self, args: &[String], stream: bool) -> Result<(), Error> {
         if stream {
             self.run_status_streaming(args)
@@ -69,6 +81,12 @@ impl Cli {
             String::from_utf8_lossy(&output.stderr).trim().to_string(),
         )
     }
+}
+
+// Keep internal mise lookups out of the caller's project directory so an
+// untrusted local mise.toml cannot block them with a trust error.
+fn neutral_cd() -> &'static str {
+    "/"
 }
 
 fn mise_command_failed(args: String, stderr: String) -> Error {
@@ -95,7 +113,11 @@ fn install_into_args(
     tool_spec: &ToolSpec,
     target_dir: &Path,
 ) -> Vec<String> {
-    let mut args = vec!["exec".to_string()];
+    let mut args = vec![
+        "exec".to_string(),
+        "--cd".to_string(),
+        neutral_cd().to_string(),
+    ];
 
     for pin in runtime_versions.values() {
         args.push(pin.runtime_pin());
@@ -106,6 +128,27 @@ fn install_into_args(
     args.push("install-into".to_string());
     args.push(tool_spec.to_string());
     args.push(target_dir.to_string());
+
+    args
+}
+
+fn latest_args(runtime_versions: &RuntimePins, tool_spec: &ToolSpec) -> Vec<String> {
+    let mut args = vec![
+        "exec".to_string(),
+        "--cd".to_string(),
+        neutral_cd().to_string(),
+    ];
+
+    for pin in runtime_versions.values() {
+        args.push(pin.runtime_pin());
+    }
+
+    args.push("--".to_string());
+    args.push("mise".to_string());
+    args.push("latest".to_string());
+    args.push(tool_spec.to_string());
+    args.push("--cd".to_string());
+    args.push(neutral_cd().to_string());
 
     args
 }
@@ -132,10 +175,35 @@ fn runtime_spec_from_output(
     Ok(RuntimeSpec::new(runtime.clone(), selector))
 }
 
+fn runtime_spec_from_install_path(
+    runtime: &Runtime,
+    path: String,
+    context: &str,
+) -> Result<RuntimeSpec, Error> {
+    let path = require_non_empty(path, context)?;
+    let path = PathBuf::from(path);
+    let version = path
+        .file_name()
+        .ok_or_else(|| invariant!("{context} returned path without a final component"))?;
+
+    Ok(RuntimeSpec::new(runtime.clone(), version.to_string()))
+}
+
+// mise parses `@path:` tool specs as slash-separated tool paths. This
+// normalization is for Windows install directories; generated Unix install
+// paths should not contain backslashes.
+fn path_tool_spec(tool_id: &ToolId, install_dir: &Path) -> String {
+    format!("{tool_id}@path:{}", install_dir.as_str().replace('\\', "/"))
+}
+
 impl Mise for Cli {
-    fn resolve_latest_version(&self, spec: &ToolSpec) -> Result<ToolSpec, Error> {
-        let spec_arg = spec.to_string();
-        let version = self.run_capture(&["latest", &spec_arg])?;
+    fn resolve_latest_version(
+        &self,
+        runtime_versions: &RuntimePins,
+        spec: &ToolSpec,
+    ) -> Result<ToolSpec, Error> {
+        let args = latest_args(runtime_versions, spec);
+        let version = self.run_capture_owned(&args)?;
         latest_tool_spec(spec, version)
     }
 
@@ -151,7 +219,7 @@ impl Mise for Cli {
             "--json",
             runtime_name,
             "--cd",
-            "/",
+            neutral_cd(),
         ])?;
 
         let parsed = parse_ls_entries(&stdout)?;
@@ -172,7 +240,7 @@ impl Mise for Cli {
             "--json",
             runtime,
             "--cd",
-            "/",
+            neutral_cd(),
         ])?;
 
         let parsed = parse_ls_entries(&stdout)?;
@@ -181,16 +249,9 @@ impl Mise for Cli {
 
     fn resolve_current_runtime_version(&self, spec: &RuntimeSpec) -> Result<RuntimeSpec, Error> {
         let runtime = spec.runtime();
-        let runtime_name = runtime.as_ref();
-        let version = self.run_capture(&[
-            "exec",
-            &spec.runtime_pin(),
-            "--",
-            "mise",
-            "current",
-            runtime_name,
-        ])?;
-        runtime_spec_from_output(runtime, version, "mise current")
+        let install_path =
+            self.run_capture(&["where", &spec.runtime_pin(), "--cd", neutral_cd()])?;
+        runtime_spec_from_install_path(runtime, install_path, "mise where")
     }
 
     fn install_into(
@@ -204,7 +265,7 @@ impl Mise for Cli {
     }
 
     fn bin_paths(&self, tool_id: &ToolId, install_dir: &Path) -> Result<Vec<PathBuf>, Error> {
-        let path_spec = format!("{tool_id}@path:{install_dir}");
+        let path_spec = path_tool_spec(tool_id, install_dir);
         let stdout = self.run_capture(&["--no-config", "bin-paths", &path_spec])?;
         Ok(stdout
             .lines()
@@ -288,6 +349,8 @@ mod tests {
             args,
             vec![
                 "exec",
+                "--cd",
+                neutral_cd(),
                 "node@24.13.1",
                 "python@3.12.8",
                 "--",
@@ -297,5 +360,57 @@ mod tests {
                 "/tmp/miseo/npm-prettier/3.8.1+node-24.13.1",
             ]
         );
+    }
+
+    #[test]
+    fn latest_args_builds_expected_exec_command() {
+        let mut runtime_versions = RuntimePins::new();
+        runtime_versions.insert(
+            Runtime::Node,
+            RuntimeSpec::new(Runtime::Node, "24.13.1".to_string()),
+        );
+
+        let spec: ToolSpec = "npm:prettier@latest".parse().unwrap();
+
+        let args = latest_args(&runtime_versions, &spec);
+        assert_eq!(
+            args,
+            vec![
+                "exec",
+                "--cd",
+                neutral_cd(),
+                "node@24.13.1",
+                "--",
+                "mise",
+                "latest",
+                "npm:prettier@latest",
+                "--cd",
+                neutral_cd(),
+            ]
+        );
+    }
+
+    #[test]
+    fn path_tool_spec_uses_slashes_for_windows_paths() {
+        let tool_id: ToolId = "npm:prettier".parse().unwrap();
+        let install_dir =
+            PathBuf::from(r"C:\Users\runneradmin\.miseo\npm-prettier\3.8.1+node-24.15.0");
+
+        assert_eq!(
+            path_tool_spec(&tool_id, &install_dir),
+            "npm:prettier@path:C:/Users/runneradmin/.miseo/npm-prettier/3.8.1+node-24.15.0"
+        );
+    }
+
+    #[test]
+    fn runtime_spec_from_install_path_uses_final_path_component() {
+        let spec = runtime_spec_from_install_path(
+            &Runtime::Node,
+            "/home/user/.local/share/mise/installs/node/24.15.0".to_string(),
+            "mise where",
+        )
+        .unwrap();
+
+        assert_eq!(spec, RuntimeSpec::new(Runtime::Node, "24.15.0"));
     }
 }

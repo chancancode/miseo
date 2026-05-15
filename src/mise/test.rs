@@ -136,7 +136,11 @@ struct Package {
 }
 
 impl Mise for Test {
-    fn resolve_latest_version(&self, spec: &ToolSpec) -> Result<ToolSpec, Error> {
+    fn resolve_latest_version(
+        &self,
+        _runtime_versions: &RuntimePins,
+        spec: &ToolSpec,
+    ) -> Result<ToolSpec, Error> {
         let key = spec.to_string();
         let version =
             self.latest_versions

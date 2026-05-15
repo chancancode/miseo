@@ -66,7 +66,7 @@ pub fn execute(
     let runtime_pins = mise.resolve_runtime_pins(tool_spec.backend(), &uses)?;
 
     let requested = tool_spec.or_latest();
-    let exact_spec = mise.resolve_latest_version(&requested)?;
+    let exact_spec = mise.resolve_latest_version(&runtime_pins, &requested)?;
     let plan = workspace.plan_install(&exact_spec, &runtime_pins)?;
 
     let tool_id = plan.tool_id().clone();

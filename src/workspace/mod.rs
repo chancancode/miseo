@@ -223,12 +223,12 @@ impl Workspace {
                     continue;
                 }
 
-                let Some(name) = path.file_name() else {
+                let Some(name) = command_name(&path) else {
                     continue;
                 };
 
-                if seen.insert(name.to_string()) {
-                    map.insert(name.to_string(), path);
+                if seen.insert(name.clone()) {
+                    map.insert(name, path);
                 }
             }
         }
@@ -565,9 +565,38 @@ fn stale_commands(previous: &[String], current: &[String]) -> Vec<String> {
 
 fn link_points_into_tool_dir(target: &Path, tool_key: &str) -> bool {
     target
-        .as_str()
-        .split('/')
-        .any(|component| component == tool_key)
+        .components()
+        .any(|component| component.as_str() == tool_key)
+}
+
+// Return the public command name for a discovered executable path.
+//
+// Unix commands are usually extensionless, so `bin/prettier` exports `prettier`.
+// Windows packages often expose launcher files, so `bin/prettier.cmd` and
+// `bin/prettier.ps1` both export `prettier`. Other extension-bearing files are
+// not commands: `bin/mise.toml` returns `None` even if Windows ACLs allow
+// execute access.
+fn command_name(path: &Path) -> Option<String> {
+    #[cfg(windows)]
+    {
+        if let Some(ext) = path.extension() {
+            if windows_command_extension(ext) {
+                return path.file_stem().map(str::to_string);
+            }
+
+            return None;
+        }
+    }
+
+    path.file_name().map(str::to_string)
+}
+
+#[cfg(windows)]
+fn windows_command_extension(ext: &str) -> bool {
+    matches!(
+        ext.to_ascii_lowercase().as_str(),
+        "bat" | "cmd" | "com" | "exe" | "ps1"
+    )
 }
 
 #[cfg(test)]
@@ -785,11 +814,13 @@ mod tests {
 
         let exe_a = a.join("foo");
         let exe_b = b.join("foo");
-        let txt = b.join("not-exec");
+        let txt = b.join("not-exec.txt");
+        let config = b.join("mise.toml");
 
         fs.write_executable_file(&exe_a, "a").unwrap();
         fs.write_executable_file(&exe_b, "b").unwrap();
         fs.write_file(&txt, "x").unwrap();
+        fs.write_file(&config, "x").unwrap();
 
         let map = workspace.discover_executables(&[a, b]).unwrap();
         assert_eq!(map.len(), 1);
