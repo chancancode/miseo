@@ -189,6 +189,13 @@ fn runtime_spec_from_install_path(
     Ok(RuntimeSpec::new(runtime.clone(), version.to_string()))
 }
 
+// mise parses `@path:` tool specs as slash-separated tool paths. This
+// normalization is for Windows install directories; generated Unix install
+// paths should not contain backslashes.
+fn path_tool_spec(tool_id: &ToolId, install_dir: &Path) -> String {
+    format!("{tool_id}@path:{}", install_dir.as_str().replace('\\', "/"))
+}
+
 impl Mise for Cli {
     fn resolve_latest_version(
         &self,
@@ -258,7 +265,7 @@ impl Mise for Cli {
     }
 
     fn bin_paths(&self, tool_id: &ToolId, install_dir: &Path) -> Result<Vec<PathBuf>, Error> {
-        let path_spec = format!("{tool_id}@path:{install_dir}");
+        let path_spec = path_tool_spec(tool_id, install_dir);
         let stdout = self.run_capture(&["--no-config", "bin-paths", &path_spec])?;
         Ok(stdout
             .lines()
@@ -380,6 +387,18 @@ mod tests {
                 "--cd",
                 neutral_cd(),
             ]
+        );
+    }
+
+    #[test]
+    fn path_tool_spec_uses_slashes_for_windows_paths() {
+        let tool_id: ToolId = "npm:prettier".parse().unwrap();
+        let install_dir =
+            PathBuf::from(r"C:\Users\runneradmin\.miseo\npm-prettier\3.8.1+node-24.15.0");
+
+        assert_eq!(
+            path_tool_spec(&tool_id, &install_dir),
+            "npm:prettier@path:C:/Users/runneradmin/.miseo/npm-prettier/3.8.1+node-24.15.0"
         );
     }
 
